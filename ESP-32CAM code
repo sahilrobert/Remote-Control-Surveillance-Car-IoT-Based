@@ -1,0 +1,76 @@
+#include "appGlobals.h"  // Custom header with all required global functions, configurations, and libraries
+
+void setup() {
+  logSetup();  // Initializes logging system for debugging or diagnostics
+
+  // Initialize storage (usually SD card or internal filesystem like SPIFFS)
+  if (startStorage()) {
+    // Load previously saved configuration (e.g., WiFi credentials, camera settings)
+    if (loadConfig()) {
+      
+      // Check if external PSRAM is available (needed for camera buffers)
+      if (psramFound()) {
+        LOG_INF("PSRAM size: %s", fmtSize(esp_spiram_get_size()));  // Log the amount of PSRAM available
+
+        // Ensure enough memory is available (at least ~3MB)
+        if (esp_spiram_get_size() > 3 * ONEMEG)
+          prepCam();  // Initialize camera with correct resolution and settings
+        else
+          snprintf(startupFailure, SF_LEN, STARTUP_FAIL "Insufficient PSRAM for app");
+      } else {
+        snprintf(startupFailure, SF_LEN, STARTUP_FAIL "Need PSRAM to be enabled");
+      }
+    }
+  }
+
+  #ifdef DEV_ONLY
+    devSetup();  // If in development mode, run extra test or debug initializations
+  #endif
+
+  // Connect to saved WiFi or start in AP mode if needed
+  startWifi();
+
+  // Start the HTTP web server to serve live video stream and settings interface
+  startWebServer();
+
+  // Check if initialization failed
+  if (strlen(startupFailure)) {
+    LOG_ERR("%s", startupFailure);  // Output failure message if setup failed
+  } else {
+    // If everything initialized successfully, start secondary services
+
+    startSustainTasks();  // Starts essential background services (e.g., watchdog, health checks)
+
+    #if INCLUDE_SMTP
+      prepSMTP();  // Prepare email notification system
+    #endif
+
+    #if INCLUDE_FTP_HFS
+      prepUpload();  // Prepare file upload (FTP/HTTP file server)
+    #endif
+
+    prepPeripherals();  // Initialize any connected sensors or hardware
+
+    #if INCLUDE_MIC
+      prepMic();  // Set up microphone (if present)
+    #endif
+
+    #if INCLUDE_TELEM
+      prepTelemetry();  // Enable telemetry reporting (e.g., MQTT or logging to cloud)
+    #endif
+
+    #if INCLUDE_TGRAM
+      prepTelegram();  // Set up Telegram bot integration
+    #endif
+
+    prepRecording();  // Setup video/image recording logic
+    checkMemory();    // Log available memory and health for debugging
+  }
+}
+
+void loop() {
+  // Log current number of active tasks (for debugging only)
+  LOG_INF("=============== Total tasks: %u ===============\n", uxTaskGetNumberOfTasks() - 1);
+  delay(1000);  // Wait 1 second between logs
+  vTaskDelete(NULL);  // Delete the loop task after logging (optional if only using FreeRTOS tasks)
+}
