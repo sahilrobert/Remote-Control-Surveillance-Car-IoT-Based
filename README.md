@@ -101,7 +101,7 @@ A smart, Wi-Fi-enabled surveillance car built using NodeMCU (ESP8266), ESP32-CAM
 
 - **Sahil Robert** (R22EI049)
 
-42nd Semester, B.Tech CSE (IoT & Cybersecurity)  
+2nd Semester, B.Tech CSE (IoT & Cybersecurity)  
 REVA University, Bengaluru
 
 
